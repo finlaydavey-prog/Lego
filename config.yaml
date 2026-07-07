@@ -1,0 +1,142 @@
+# LEGO arbitrage monitor configuration.
+# Secrets live in .env — this file holds only tunables and is safe to commit.
+
+location:
+  postcode: "NE6 5SD"
+  lat: 54.975
+  lon: -1.565
+  radius_miles: 2
+
+search_terms:
+  - lego
+  - lego set
+  - lego bundle
+  - lego job lot
+
+deal:
+  # Alert when asking price <= this fraction of estimated net resale value.
+  alert_price_ratio: 0.60
+  # Fees taken off resale value (eBay final value fee + postage buffer).
+  selling_fees: 0.13
+  # Minimum absolute margin (GBP) to bother alerting on.
+  min_margin_gbp: 10
+
+condition:
+  # Multiplier applied to the matched BrickLink price column.
+  multipliers:
+    sealed: 1.0            # priced against New
+    boxed-complete: 1.0    # priced against Used
+    boxed-incomplete: 0.70
+    built-complete: 0.95
+    loose-bulk: 0.85       # applied to estimated per-set / per-kg value
+    unknown: 0.60
+  # Extra discount per flag raised by condition assessment.
+  flag_discounts:
+    yellowing: 0.15
+    sun_damage: 0.15
+    damaged_box: 0.05
+    missing_minifigures: 0.20
+    knockoff_bricks: 0.40
+    smoke_pet: 0.10
+    stickers_applied: 0.05
+  # Floor so stacked flags can't take the multiplier below this.
+  min_multiplier: 0.25
+
+pricing:
+  cache_days: 7
+  # If BrickLink credentials are missing, estimate market value from
+  # Rebrickable RRP with these factors (rough UK aftermarket heuristics).
+  rrp_fallback:
+    new_factor: 0.85
+    used_factor: 0.60
+  brickeconomy:
+    # No official API; scraping it is fragile. Off by default.
+    enabled: false
+
+identification:
+  claude_model: claude-sonnet-5
+  max_photos_per_listing: 4
+  # Below this confidence a vision identification is stored but not priced.
+  min_confidence: 0.5
+
+sources:
+  gumtree:
+    enabled: true
+    poll_minutes: 45
+    jitter_minutes: 10
+    # Seconds between successive page fetches within one run.
+    request_delay_seconds: 20
+    # Also sweep this category, newest first. LEGO listings sit under
+    # baby-kids-stuff on Gumtree (verified live 2026-07). Empty string = off.
+    category_sweep: baby-kids-stuff
+    sort: date
+    # robots.txt note: gumtree.com disallows /search for crawlers. This tool
+    # makes one request per search term per poll on your behalf, but set
+    # enforce_robots: true to skip robots-disallowed URLs entirely.
+    enforce_robots: false
+    # Fetch strategy: "requests" is light; "playwright" renders like a real
+    # browser and is the fallback when requests gets bot-blocked (HTTP 471).
+    fetcher: requests
+    playwright_fallback: true
+
+  email_intake:
+    enabled: true
+    poll_minutes: 5
+    folder: "LEGO-Alerts"     # Gmail label or IMAP folder to watch
+    fallback_folder: "INBOX"  # used if the folder above doesn't exist
+    mark_processed: true      # set \Seen on handled messages
+    keep_raw_days: 14         # raw emails kept in DB for debugging, then pruned
+    # Only URLs on these domains are ever followed / stored.
+    allowed_link_domains:
+      - facebook.com
+      - gumtree.com
+      - ebay.co.uk
+    # Which emails count as listing alerts. Add new alert formats here —
+    # no code changes needed.
+    rules:
+      - name: facebook-marketplace
+        from_domains: [facebookmail.com, facebook.com]
+        subject_patterns: ["new listing", "matches your search", "marketplace"]
+        source: facebook
+      - name: gumtree-saved-search
+        from_domains: [gumtree.com, mail.gumtree.com]
+        subject_patterns: ["new ad", "matching", "search alert"]
+        source: gumtree
+      - name: ebay-saved-search
+        from_domains: [ebay.co.uk, ebay.com]
+        subject_patterns: ["new match", "saved search"]
+        source: ebay
+
+  facebook:
+    # Tier 3: logged-out fetch of individual listing pages (opportunistic
+    # enrichment of email-intake listings). Never bypasses the login wall —
+    # a login redirect means give up on that URL.
+    loggedout_probe:
+      enabled: false
+    # Tier 2: Playwright with a persistent profile you logged into manually
+    # once (python monitor.py fb-login). WARNING: automated access breaches
+    # Facebook's Terms of Service; a flagged/locked account is possible.
+    loggedin:
+      enabled: false
+      poll_minutes: 180
+      jitter_minutes: 45
+      profile_dir: fb_profile
+
+  ebay:
+    enabled: false            # flips on automatically when EBAY_* keys are set
+    poll_minutes: 30
+    radius_miles: 5
+
+alerts:
+  channels: [ntfy]            # any of: ntfy, telegram
+  # Ops alerts (parser breakage, repeated source failures) also use these.
+
+storage:
+  db_path: data/monitor.sqlite3
+  photo_dir: data/photos
+  download_photos: true
+  max_photos_per_listing: 6
+
+scheduler:
+  # Used by `python monitor.py run --loop`.
+  tick_seconds: 30

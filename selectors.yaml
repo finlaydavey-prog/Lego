@@ -1,0 +1,50 @@
+# All scraping selectors live here so markup changes need a config edit, not
+# a code change. Verified against live gumtree.com HTML on 2026-07-07.
+
+gumtree:
+  # Primary strategy: the results page embeds full listing data as
+  # URL-encoded JSON in an inline script. Far more stable than CSS classes.
+  client_data:
+    script_regex: 'window\.clientData\s*=\s*"([^"]+)"'
+    listings_paths:                             # each path -> list of ad dicts
+      - resultsPage.searchAds                   # results inside the radius
+      - resultsPage.nearbyAds.ads               # results just outside it
+    fields:
+      id: id
+      title: title
+      price: price                              # e.g. "£15.00"
+      path: path                                # relative listing URL
+      posted_epoch_ms: date
+      posted_relative: postedDate               # e.g. "57 days ago"
+      description: shortDescription
+      location: location
+      image: imageUrl
+      extra_images: additionalImageUrls
+      attributes: attributes                    # [{name, value, key}]
+
+  # Fallback strategy: CSS selectors on the rendered page (data-q attributes
+  # are Gumtree's own test hooks, more stable than emotion class names).
+  css:
+    result: 'article[data-q="search-result"]'
+    anchor: 'a[data-q="search-result-anchor"]'
+    title: '[data-q="tile-title"]'
+    price: '[data-q="tile-price"]'
+    location: '[data-q="tile-location"]'
+    description: '[data-q="tile-description"]'
+    image: 'figure.listing-tile-thumbnail-image img'
+
+  # Markers that the response is a bot-block page, not results.
+  blocked_markers:
+    - "Request Blocked"
+    - "link11"
+  blocked_status_codes: [403, 429, 471]
+
+facebook:
+  # Logged-out listing page (tier 3). If any login marker matches, give up.
+  login_markers:
+    - "login.php"
+    - "You must log in"
+    - "/login/?next="
+  item_title: 'meta[property="og:title"]'
+  item_description: 'meta[property="og:description"]'
+  item_image: 'meta[property="og:image"]'

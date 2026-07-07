@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+logs/
+fb_profile/
+*.sqlite3
+*.db
