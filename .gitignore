@@ -7,3 +7,4 @@ logs/
 fb_profile/
 *.sqlite3
 *.db
+nfc_wifi_out/
