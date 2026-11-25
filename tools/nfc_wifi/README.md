@@ -69,3 +69,16 @@ You can also write `wifi.ndef` with any tool that takes raw NDEF, or write
 ```bash
 python3 -m pytest -q test_nfc_wifi.py
 ```
+
+## Hosted version (`web/`)
+
+`web/` is a small Vercel site, live at **https://nfc-wifi.vercel.app**:
+
+* `/`: a setup page. Enter your SSID and password and it gives you the URL
+  to put on the sticker, the NFC Tools steps, and a printable QR code. All of
+  this happens in the browser; nothing is sent or stored.
+* `/w?s=<ssid>&p=<password>[&t=WPA3|WPA|NONE][&h=1]`: returns the iOS
+  `.mobileconfig` built from the link itself. The server stores nothing; the
+  credentials live only in the link on the sticker.
+* `qrcode.js` is the MIT-licensed qrcode-generator 1.4.4, bundled with the
+  site so it doesn't depend on a CDN.
